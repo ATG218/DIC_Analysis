@@ -1,0 +1,56 @@
+{
+    "dice_exe_path": "C:/Program Files (x86)/Digital Image Correlation Engine/dice.exe",
+    "reference_path": "C:/Users/alext/Downloads/20250129_304_SORTED/Notch_01/Notch_01_cycle_0000_00000.bmp",
+    "input_folder": "C:/Users/alext/Downloads/test123",
+    "output_folder": "C:/Users/alext/Downloads/test_analyzed",
+    "subset_size": 25,
+    "step_size": 9,
+    "analysis_settings": {
+        "sssig_threshold": 500,
+        "enable_translation": true,
+        "enable_rotation": true,
+        "enable_normal_strain": true,
+        "enable_shear_strain": true,
+        "optimization_method": "GRADIENT_BASED",
+        "initialization_method": "USE_FEATURE_MATCHING",
+        "output_delimiter": ",",
+        "strain_window_size": 36
+    },
+    "output_spec": {
+        "COORDINATE_X": true,
+        "COORDINATE_Y": true,
+        "VSG_STRAIN_XX": true,
+        "VSG_STRAIN_YY": true,
+        "VSG_STRAIN_XY": true
+    },
+    "region_of_interest": {
+        "type": "polygon",
+        "vertices": [
+            [296, 412],
+            [570, 420],
+            [570, 604],
+            [307, 599]
+        ]
+    },
+    "visualization_settings": {
+        "plot_type": "scatter",
+        "data_columns": {
+            "x": "COORDINATE_X",
+            "y": "COORDINATE_Y",
+            "id": "SUBSET_ID"
+        },
+        "display_options": {
+            "show_ids": true,
+            "point_size": 8,
+            "point_color": "blue",
+            "point_opacity": 0.6,
+            "label_size": 8,
+            "show_grid": true
+        },
+        "save_formats": ["html", "png"]
+    },
+    "settings_paths": {
+    }
+
+
+}
