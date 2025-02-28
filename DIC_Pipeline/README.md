@@ -1,6 +1,6 @@
 # DICe Processing Scripts
 
-This repository contains a set of Python scripts for running Digital Image Correlation (DICe) analysis and post-processing the results. This pipeline is designed to be run after using the notch_parser sorting script.
+This repository contains a set of Python scripts for running Digital Image Correlation (DICe) analysis and post-processing the results. This pipeline is designed to be run after using the notch_parser sorting script. Test
 
 ## ⚠️ Important Requirements
 
