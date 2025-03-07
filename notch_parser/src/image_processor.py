@@ -14,6 +14,8 @@ class ImageProcessor:
         self.output_directory = output_directory
         self.log_file = log_file
         self.reference_directory = reference_directory
+        self.debug_directory = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'debug')
+        os.makedirs(self.debug_directory, exist_ok=True)
         self.setup_logging()
         self.reference_images = []
         self.sorted_notches = []
@@ -41,76 +43,135 @@ class ImageProcessor:
             logging.warning(f'Expected 8 images in folder {folder}, but found {len(image_files)}.')
         return image_files
 
-    def calculate_notch_width(self, binary):
+    def calculate_notch_width(self, binary, image_name="unknown", save_debug=False):
+        """Calculate the width of a notch in the image.
+        
+        The process works as follows:
+        1. Select a Region of Interest (ROI) in the top portion of the image
+        2. Try to detect both bright (>240) and dark (<50) regions
+        3. For each row in the ROI:
+           - Find continuous regions of pixels (allowing small gaps)
+           - Measure the width of each region (right_edge - left_edge)
+           - Keep track of the widest valid region
+        4. Choose between bright and dark detection based on which is closer to expected width
+        """
         # Convert to uint8 if not already
         binary = binary.astype(np.uint8) * 255
         
         height, width = binary.shape
         
-        # Start looking at 14% down from the top
-        start_y = height // 4
-        search_height = height // 4  # Look through the middle 25%
+        # Start looking at 20% down from the top (increased from 25%)
+        start_y = int(height * 0.20)
+        # Look through 40% of the image (increased from 30%)
+        search_height = int(height * 0.4)  
         
         # Create ROI in the search area
         roi = binary[start_y:start_y + search_height, :]
         
-        # Create mask of bright pixels (value > 240)
-        bright_mask = (roi > 240).astype(np.uint8) * 255
-        
         # Create debug image
         debug_img = cv2.cvtColor(roi, cv2.COLOR_GRAY2BGR)
         
+        # Try both bright and dark detection
+        bright_width = self._detect_notch(roi, True, debug_img)
+        dark_width = self._detect_notch(roi, False, debug_img)
+        
+        # Choose the better width based on validity
+        if bright_width > 0 and dark_width > 0:
+            # If both are valid, choose the one closer to expected range
+            expected_width = 150  # Typical notch width
+            if abs(bright_width - expected_width) < abs(dark_width - expected_width):
+                best_width = bright_width
+                logging.info(f'Using bright notch width {bright_width} for {image_name}')
+            else:
+                best_width = dark_width
+                logging.info(f'Using dark notch width {dark_width} for {image_name}')
+        else:
+            # Use whichever one is valid
+            best_width = max(bright_width, dark_width)
+        
+        # Save debug image only if requested (for reference images)
+        if save_debug:
+            debug_base = os.path.splitext(image_name)[0] if image_name != "unknown" else f"debug_{int(time.time())}"
+            cv2.imwrite(os.path.join(self.debug_directory, f'{debug_base}_notch_width.png'), debug_img)
+        
+        if best_width > 0:
+            return best_width
+        
+        logging.warning(f'No valid notch edges found in image {image_name}')
+        return 0
+
+    def _detect_notch(self, roi, detect_bright, debug_img):
+        """Helper method to detect notch width by looking for bright or dark regions.
+        
+        The width calculation process:
+        1. Create a binary mask based on threshold (>240 for bright, <50 for dark)
+        2. For each row in the top portion of the ROI:
+           a. Find all pixels that meet the threshold
+           b. Group pixels into continuous regions (allowing gaps up to 5 pixels)
+           c. For each region, calculate width = right_edge - left_edge
+           d. If width is within valid range (50-300 pixels), consider it
+           e. Keep track of the widest valid region found
+        3. Return the width of the widest valid region found
+        """
+        # Create mask based on whether we're looking for bright or dark regions
+        if detect_bright:
+            mask = (roi > 240).astype(np.uint8) * 255
+            color = (0, 255, 0)  # Green for bright detection
+        else:
+            mask = (roi < 50).astype(np.uint8) * 255
+            color = (0, 0, 255)  # Red for dark detection
+            
         min_width = 50  # Minimum expected notch width
         max_width = 300  # Maximum expected notch width
         
+        best_width = 0
+        best_y = 0
+        best_left = 0
+        best_right = 0
+        
+        # Look at top 30% of ROI (increased from 20%)
+        top_search_height = int(roi.shape[0] * 0.3)
+        
         # For each row in the search area
-        for y in range(search_height):
-            # Get the bright pixels in this row
-            row_values = roi[y, :]
-            bright_pixels = np.where(row_values > 240)[0]
+        for y in range(top_search_height):
+            # Get the pixels in this row that meet our threshold
+            row_values = mask[y, :]
+            pixels = np.where(row_values > 240)[0] if detect_bright else np.where(row_values > 0)[0]
             
-            if len(bright_pixels) > 0:
-                # Find continuous regions of bright pixels
-                gaps = np.diff(bright_pixels)
-                gap_threshold = 5  # Allow small gaps
+            if len(pixels) > 0:
+                # Find continuous regions (allowing small gaps)
+                gaps = np.diff(pixels)
+                gap_threshold = 5  # Allow gaps up to 5 pixels
                 
                 # Split into continuous regions
                 split_indices = np.where(gaps > gap_threshold)[0] + 1
-                regions = np.split(bright_pixels, split_indices)
+                regions = np.split(pixels, split_indices)
                 
-                # Find the widest continuous region
-                max_width_found = 0
-                best_left = 0
-                best_right = 0
-                
+                # Find the widest valid region
                 for region in regions:
                     if len(region) > 0:
                         left_edge = region[0]
                         right_edge = region[-1]
                         region_width = right_edge - left_edge
                         
-                        if region_width > max_width_found:
-                            max_width_found = region_width
-                            best_left = left_edge
-                            best_right = right_edge
-                
-                # Verify the width is reasonable
-                if min_width < max_width_found < max_width:
-                    # Draw the detected width on debug image
-                    cv2.line(debug_img, (best_left, y), (best_right, y), (0, 255, 0), 2)
-                    cv2.circle(debug_img, (best_left, y), 3, (255, 0, 0), -1)
-                    cv2.circle(debug_img, (best_right, y), 3, (255, 0, 0), -1)
-                    
-                    # Save debug images
-                    cv2.imwrite('debug_notch_width.png', debug_img)
-                    cv2.imwrite('debug_edges.png', bright_mask)
-                    
-                    actual_y = start_y + y
-                    logging.info(f'Found notch at row {actual_y} with width {max_width_found}')
-                    return max_width_found
+                        # Draw all detected regions
+                        cv2.line(debug_img, (left_edge, y), (right_edge, y), color, 1)
+                        
+                        # Update best width if this region is valid
+                        if min_width < region_width < max_width:
+                            if region_width > best_width:
+                                best_width = region_width
+                                best_y = y
+                                best_left = left_edge
+                                best_right = right_edge
         
-        logging.warning('No valid notch edges found')
-        return 0
+        # Draw the best match
+        if best_width > 0:
+            cv2.line(debug_img, (best_left, best_y), (best_right, best_y), color, 2)
+            cv2.circle(debug_img, (best_left, best_y), 3, color, -1)
+            cv2.circle(debug_img, (best_right, best_y), 3, color, -1)
+            
+        return best_width
 
     def move_reference_images(self, reference_folder):
         image_files = self.load_images(reference_folder)
@@ -120,7 +181,8 @@ class ImageProcessor:
         for i, image_file in enumerate(image_files):
             source_path = os.path.join(reference_folder, image_file)
             image = cv2.imread(source_path, cv2.IMREAD_GRAYSCALE)
-            width = self.calculate_notch_width(image)
+            # Only save debug images for reference notches
+            width = self.calculate_notch_width(image, f"ref_{i:02d}", save_debug=True)
             notch_widths.append((i, width))
             logging.info(f'Original notch {i} has width: {width}')
         
@@ -210,6 +272,8 @@ class ImageProcessor:
             # Process the first image to determine the starting notch
             first_image_path = os.path.join(subfolder, image_files[0])
             first_image = cv2.imread(first_image_path, cv2.IMREAD_GRAYSCALE)
+            # Don't save debug images for non-reference images
+            width = self.calculate_notch_width(first_image, f"first_{os.path.basename(subfolder)}_{image_files[0]}", save_debug=False)
             best_match_index, best_match_score = self.find_best_match(first_image)
             logging.info(f'Processing subfolder {subfolder} (Cycle {cycle_number})')
 
@@ -218,6 +282,8 @@ class ImageProcessor:
                 source_image_path = os.path.join(subfolder, image_file)
                 try:
                     image = cv2.imread(source_image_path, cv2.IMREAD_GRAYSCALE)
+                    # Don't save debug images for non-reference images
+                    width = self.calculate_notch_width(image, f"{os.path.basename(subfolder)}_{image_file}", save_debug=False)
                     original_index = (best_match_index + i) % 8
                     notch_index = self.notch_order_map[original_index]  # Map to width-based index
                     destination_image_path = os.path.join(
@@ -262,7 +328,12 @@ class ImageProcessor:
 
     def extract_cycle_number(self, folder):
         folder_name = os.path.basename(folder)
-        cycle_number = folder_name.split('_')[-1]
+        parts = folder_name.split('_')
+        # If there aren't enough parts for a cycle number, return 0000
+        if len(parts) < 4:  # Assuming normal format is like "t_INDEX_CYCLE"
+            logging.info(f'No cycle number found in folder {folder_name}, using 0000')
+            return "0000"
+        cycle_number = parts[-1]
         return cycle_number
 
     def extract_index_number(self, folder):
