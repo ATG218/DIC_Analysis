@@ -225,7 +225,7 @@ class ImageProcessor:
             ref_image_path = os.path.join(self.reference_directory, f'Notch_{notch_idx:02d}.bmp')
             if os.path.exists(ref_image_path):
                 dest_folder = os.path.join(self.output_directory, f'Notch_{notch_idx:02d}')
-                dest_path = os.path.join(dest_folder, f'Notch_{notch_idx:02d}_cycle_0000_{ref_folder_index}.bmp')
+                dest_path = os.path.join(dest_folder, f'Notch_{notch_idx:02d}_cycle_00000_{ref_folder_index}.bmp')
                 shutil.copy2(ref_image_path, dest_path)
                 logging.info(f'Copied reference image to {dest_path}')
 
