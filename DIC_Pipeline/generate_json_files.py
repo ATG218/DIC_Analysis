@@ -14,7 +14,7 @@ def generate_json_config(dice_exe_path, reference_path, input_folder, output_bas
         "subset_size": subset_size,
         "step_size": step_size,
         "analysis_settings": {
-            "sssig_threshold": 250,
+            "sssig_threshold": 30,
             "enable_translation": True,
             "enable_rotation": True,
             "enable_normal_strain": True,
@@ -34,74 +34,61 @@ def generate_json_config(dice_exe_path, reference_path, input_folder, output_bas
         "region_of_interest": {
             "type": "polygon",
             "vertices": [
-            [
-                280,
-                384
-            ],
-            [
-                403,
-                387
-            ],
-            [
-                401,
-                427
-            ],
-            [
-                411,
-                460
-            ],
-            [
-                423,
-                489
-            ],
-            [
-                448,
-                512
-            ],
-            [
-                485,
-                530
-            ],
-            [
-                512,
-                536
-            ],
-            [
-                541,
-                534
-            ],
-            [
-                582,
-                512
-            ],
-            [
-                604,
-                492
-            ],
-            [
-                620,
-                463
-            ],
-            [
-                624,
-                451
-            ],
-            [
-                628,
-                390
-            ],
-            [
-                750,
-                387
-            ],
-            [
-                751,
-                620
-            ],
-            [
-                280,
-                620
-            ]
+[200, 102],
+[342, 113],
+[342, 118],
+[342, 124],
+[342, 133],
+[342, 143],
+[342, 154],
+[342, 165],
+[342, 175],
+[342, 184],
+[341, 196],
+[341, 207],
+[341, 217],
+[341, 228],
+[341, 239],
+[341, 250],
+[342, 260],
+[345, 271],
+[349, 282],
+[355, 293],
+[365, 302],
+[374, 312],
+[385, 318],
+[394, 323],
+[406, 326],
+[417, 326],
+[427, 325],
+[438, 324],
+[449, 322],
+[461, 318],
+[470, 311],
+[480, 304],
+[490, 294],
+[496, 284],
+[501, 273],
+[506, 262],
+[506, 251],
+[506, 241],
+[507, 229],
+[506, 219],
+[506, 209],
+[506, 198],
+[506, 186],
+[505, 176],
+[505, 165],
+[504, 155],
+[504, 144],
+[504, 134],
+[504, 123],
+[503, 118],
+[500, 114],
+[822, 100],
+[824, 622],
+[202, 624]
+
         ]
         },
         "visualization_settings": {
@@ -148,31 +135,34 @@ def generate_summary_json(settings_files, subset_ids, summary_output_path):
 
 
 # Generate file(s)
-
-
 dice_exe_path="C:/Program Files (x86)/Digital Image Correlation Engine/dice.exe"
-reference_path="C:/Users/alext/OneDrive/Documents/UROP25/DiceCLI/DICe_Processing/parameterStudy/photos/n5/Notch_05_cycle_0000_00001.bmp"
-input_folder="C:/Users/alext/OneDrive/Documents/UROP25/DiceCLI/DICe_Processing/parameterStudy/photos/n5"
-output_folder="C:/Users/alext/OneDrive/Documents/UROP25/DiceCLI/DICe_Processing/parameterStudy/guageStudy/n5"
 
-subset_list = [27]
-step_list = [2]
+MainPath = "C:/Users/METALS/Documents/Fatigue rig/Experiments/20250306_Heating test/Noise floor room temperature_sorted/Notch_"
+NotchNum = "09"
+
+reference_path=MainPath+NotchNum+"/Notch_"+NotchNum+"_cycle_00001_00001.bmp"
+input_folder=MainPath+NotchNum+"/"
+output_folder=MainPath+NotchNum+"/DICe/"
+
+subset_list = [21,25,29]
+step_list = [3]
 
 # VSGs are multiples of step_list, where the strain_guage is vsg_list * step_list
-vsg_list = [4]
+vsg_list = [6,9,12,15,18,21,24,27]
 
+# Preallocate list
 settings_files = []
 
 for subset_size in subset_list:
     for step_size in step_list:
-        for vsg in [x * step_size for x in vsg_list]:
-            print(vsg)
-            filename = "guageStudy/temp/n5_sub{:02}_stp{:02}_vsg{:03}.json".format(subset_size, step_size, vsg)
+        for vsg in vsg_list:
+            # print(vsg)
+            filename = "C:/Users/METALS/Documents/DIC_Analysis/temp/n"+NotchNum+"_sub{:02}_stp{:02}_vsg{:03}.json".format(subset_size, step_size, vsg)
             generate_json_config(dice_exe_path, reference_path, input_folder, output_folder, subset_size, step_size, vsg, filename)
             settings_files.append(filename)
 
 # Generate the batch settings JSON file
 subset_ids = []  # Example subset IDs
 
-summary_filename = "guageStudy/temp/batch_settings.json"  # Change as needed
+summary_filename = "C:/Users/METALS/Documents/DIC_Analysis/temp/batch_settings.json"  # Change as needed
 generate_summary_json(settings_files, subset_ids, summary_filename)
