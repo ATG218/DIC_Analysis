@@ -61,7 +61,7 @@ class ImageProcessor:
         height, width = binary.shape
         
         # Start looking at 20% down from the top (increased from 25%)
-        start_y = int(height * 0.20)
+        start_y = int(height * 0.10)
         # Look through 40% of the image (increased from 30%)
         search_height = int(height * 0.4)  
         
@@ -332,7 +332,7 @@ class ImageProcessor:
         # If there aren't enough parts for a cycle number, return 0000
         if len(parts) < 4:  # Assuming normal format is like "t_INDEX_CYCLE"
             logging.info(f'No cycle number found in folder {folder_name}, using 0000')
-            return "0000"
+            return "00000"
         cycle_number = parts[-1]
         return cycle_number
 
